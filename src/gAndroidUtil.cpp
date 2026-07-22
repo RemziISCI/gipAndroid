@@ -6,18 +6,28 @@
  */
 
 
-#include "gUtils.h"
-#include "gAppManager.h"
 #include "gAndroidUtil.h"
+#include "gAppManager.h"
+#include "gUtils.h"
+
 
 #include <thread>
+
+#ifdef __arm__
+#include <stdint.h>
+extern "C" {
+int32_t __sync_add_and_fetch_4(volatile int32_t* ptr, int32_t val) {
+	return __atomic_add_fetch(ptr, val, __ATOMIC_SEQ_CST);
+}
+}
+#endif
 
 AAssetManager* gAndroidUtil::assets;
 std::string gAndroidUtil::datadirectory;
 JavaVM* javavm;
 jobject classloader;
 
-JavaString::JavaString(const std::string &string) {
+JavaString::JavaString(const std::string& string) {
 	env = gAndroidUtil::getJNIEnv();
 	str = (jstring) env->NewGlobalRef(env->NewStringUTF(string.c_str()));
 }
@@ -27,18 +37,18 @@ JavaString::~JavaString() {
 	env->DeleteGlobalRef(str);
 }
 
-AAsset* gAndroidUtil::loadAsset(const std::string &path, int mode) {
+AAsset* gAndroidUtil::loadAsset(const std::string& path, int mode) {
 	return AAssetManager_open(assets, path.c_str(), mode);
 }
 
-void gAndroidUtil::closeAsset(AAsset *asset) {
+void gAndroidUtil::closeAsset(AAsset* asset) {
 	AAsset_close(asset);
 }
 
 jmethodID gAndroidUtil::getJavaMethodID(jclass classID, std::string methodName, std::string methodSignature) {
 	jmethodID result = getJNIEnv()->GetMethodID(classID, methodName.c_str(), methodSignature.c_str());
 
-	if(!result) {
+	if (!result) {
 		gLoge("gAndroidUtil") << "couldn't find instance method '"
 							  << methodName << "' with signature '"
 							  << methodSignature << "' in class '"
@@ -52,7 +62,7 @@ jmethodID gAndroidUtil::getJavaMethodID(jclass classID, std::string methodName, 
 jmethodID gAndroidUtil::getJavaStaticMethodID(jclass classID, std::string methodName, std::string methodSignature) {
 	jmethodID result = getJNIEnv()->GetStaticMethodID(classID, methodName.c_str(), methodSignature.c_str());
 
-	if(!result) {
+	if (!result) {
 		gLoge("gAndroidUtil") << "couldn't find static method '"
 							  << methodName << "' with signature '"
 							  << methodSignature << "' in class '"
@@ -64,13 +74,13 @@ jmethodID gAndroidUtil::getJavaStaticMethodID(jclass classID, std::string method
 }
 
 std::string gAndroidUtil::getJavaClassName(jclass classID) {
-	return "[UNKNOWN]"; //TODO
+	return "[UNKNOWN]";//TODO
 }
 
 jclass gAndroidUtil::getJavaClassID(std::string className) {
 	JNIEnv* env = getJNIEnv();
 	jclass result = env->FindClass(className.c_str());
-	if(!result) {
+	if (!result) {
 		env->ExceptionClear();
 		jstring str = env->NewStringUTF(className.c_str());
 		result = (jclass) gAndroidUtil::callJavaObjectMethod(
@@ -79,7 +89,7 @@ jclass gAndroidUtil::getJavaClassID(std::string className) {
 				str);
 		env->DeleteLocalRef(str);
 
-		if(!result) {
+		if (!result) {
 			gLoge("gAndroidUtil::getJavaClassID") << "couldn't find class '"
 												  << className << "'";
 			return nullptr;
@@ -91,11 +101,8 @@ jclass gAndroidUtil::getJavaClassID(std::string className) {
 
 jfieldID gAndroidUtil::getJavaStaticFieldID(jclass classID, std::string fieldName, std::string fieldType) {
 	jfieldID result = getJNIEnv()->GetStaticFieldID(classID, fieldName.c_str(), fieldType.c_str());
-	if(!result){
-		gLoge("gAndroidUtil::getJavaStaticFieldID") << "couldn't find static field '" <<
-				fieldName << "' of type '" <<
-				fieldType << "' in class '" <<
-				gAndroidUtil::getJavaClassName(classID) << "'";
+	if (!result) {
+		gLoge("gAndroidUtil::getJavaStaticFieldID") << "couldn't find static field '" << fieldName << "' of type '" << fieldType << "' in class '" << gAndroidUtil::getJavaClassName(classID) << "'";
 		return nullptr;
 	}
 
@@ -121,7 +128,7 @@ jobject gAndroidUtil::getJavaStaticObjectField(std::string className, std::strin
 	return result;
 }
 
-void gAndroidUtil::callJavaVoidMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, va_list args){
+void gAndroidUtil::callJavaVoidMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, va_list args) {
 	jmethodID methodID = gAndroidUtil::getJavaMethodID(classID, methodName, methodSignature);
 	if (!methodID)
 		return;
@@ -309,7 +316,7 @@ float gAndroidUtil::callJavaFloatMethod(jobject object, std::string className, s
 	return result;
 }
 
-int gAndroidUtil::callJavaIntMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, va_list args){
+int gAndroidUtil::callJavaIntMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, va_list args) {
 	jmethodID methodid = gAndroidUtil::getJavaMethodID(classID, methodName, methodSignature);
 
 	if (!methodid) {
@@ -346,7 +353,7 @@ int gAndroidUtil::callJavaIntMethod(jobject object, std::string className, std::
 	return result;
 }
 
-int64_t gAndroidUtil::callJavaLongMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, va_list args){
+int64_t gAndroidUtil::callJavaLongMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, va_list args) {
 	jmethodID methodid = gAndroidUtil::getJavaMethodID(classID, methodName, methodSignature);
 	if (!methodid) {
 		gLoge() << "Couldn't find " << methodName << " for int64_t call";
@@ -393,7 +400,7 @@ bool gAndroidUtil::callJavaBoolMethod(jobject object, jclass classID, std::strin
 	return getJNIEnv()->CallBooleanMethodV(object, methodid, args);
 }
 
-bool gAndroidUtil::callJavaBoolMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, ...){
+bool gAndroidUtil::callJavaBoolMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, ...) {
 	va_list args;
 	va_start(args, methodSignature);
 	auto result = gAndroidUtil::callJavaBoolMethod(object, classID, methodName, methodSignature, args);
@@ -402,7 +409,7 @@ bool gAndroidUtil::callJavaBoolMethod(jobject object, jclass classID, std::strin
 	return result;
 }
 
-bool gAndroidUtil::callJavaBoolMethod(jobject object, std::string className, std::string methodName, std::string methodSignature, ...){
+bool gAndroidUtil::callJavaBoolMethod(jobject object, std::string className, std::string methodName, std::string methodSignature, ...) {
 	jclass classID = gAndroidUtil::getJavaClassID(className);
 	if (!classID) {
 		gLoge("gAndroidUtil") << "Couldn't find " << className << " for bool call";
@@ -418,14 +425,14 @@ bool gAndroidUtil::callJavaBoolMethod(jobject object, std::string className, std
 	return result;
 }
 
-void gAndroidUtil::convertStringToJString(const std::string& str, jstring &jstr) {
+void gAndroidUtil::convertStringToJString(const std::string& str, jstring& jstr) {
 	jstr = getJNIEnv()->NewStringUTF(str.c_str());
 }
 
-void gAndroidUtil::convertJStringToString(JNIEnv * env, jstring jstr, std::string &str) {
+void gAndroidUtil::convertJStringToString(JNIEnv* env, jstring jstr, std::string& str) {
 	jboolean isCopy;
-	const char *arrayChar = env->GetStringUTFChars(jstr, &isCopy);
-	if(isCopy == JNI_FALSE)
+	const char* arrayChar = env->GetStringUTFChars(jstr, &isCopy);
+	if (isCopy == JNI_FALSE)
 		return;
 	str = arrayChar;
 }
@@ -437,7 +444,7 @@ JavaVM* gAndroidUtil::getJavaVM() {
 JNIEnv* gAndroidUtil::getJNIEnv() {
 	JNIEnv* env;
 	JavaVM* vm = getJavaVM();
-	if(!vm) {
+	if (!vm) {
 		gLoge("gAndroidUtil") << "couldn't get java virtual machine";
 		return nullptr;
 	}
@@ -468,7 +475,7 @@ jobject gAndroidUtil::getJavaAndroidActivity() {
 }
 
 void gAndroidUtil::attachMainThread(jobject classLoader) {
-	gAndroidUtil::getJNIEnv(); // Attach the thread to JVM
+	gAndroidUtil::getJNIEnv();// Attach the thread to JVM
 	classloader = classLoader;
 	jclass looper = gAndroidUtil::getJavaClassID("android/os/Looper");
 	gAndroidUtil::callJavaStaticVoidMethod(looper, "prepare", "()V");
@@ -477,15 +484,15 @@ void gAndroidUtil::attachMainThread(jobject classLoader) {
 void gAndroidUtil::setDeviceOrientation(DeviceOrientation orientation) {
 	jclass glistandroid = getJavaGlistAndroid();
 
-	jmethodID method = getJNIEnv()->GetStaticMethodID(glistandroid,"setDeviceOrientation","(I)V");
-	getJNIEnv()->CallStaticVoidMethod(glistandroid,method, orientation);
+	jmethodID method = getJNIEnv()->GetStaticMethodID(glistandroid, "setDeviceOrientation", "(I)V");
+	getJNIEnv()->CallStaticVoidMethod(glistandroid, method, orientation);
 }
 
 void gAndroidUtil::setFullscreen(bool fullscreen) {
 	jclass glistandroid = getJavaGlistAndroid();
 
-	jmethodID method = getJNIEnv()->GetStaticMethodID(glistandroid,"setFullscreen","(Z)V");
-	getJNIEnv()->CallStaticVoidMethod(glistandroid,method, fullscreen);
+	jmethodID method = getJNIEnv()->GetStaticMethodID(glistandroid, "setFullscreen", "(Z)V");
+	getJNIEnv()->CallStaticVoidMethod(glistandroid, method, fullscreen);
 }
 
 std::string gAndroidUtil::getDeviceName() {
@@ -547,11 +554,11 @@ std::string gAndroidUtil::getSharedPreferences(const std::string& key, const std
 }
 
 void gAndroidUtil::setSharedPreferences(const std::string& key, const std::string& value) {
-	callJavaStaticVoidMethod(getJavaGlistAndroid(), "setSharedPreferences","(Ljava/lang/String;Ljava/lang/String;)V", JavaString(key).native(), JavaString(value).native());
+	callJavaStaticVoidMethod(getJavaGlistAndroid(), "setSharedPreferences", "(Ljava/lang/String;Ljava/lang/String;)V", JavaString(key).native(), JavaString(value).native());
 }
 
 std::string gAndroidUtil::getCountrySim() {
-	jstring jstr = (jstring)callJavaStaticObjectMethod(getJavaGlistAndroid(), "getCountrySim", "()Ljava/lang/String;");
+	jstring jstr = (jstring) callJavaStaticObjectMethod(getJavaGlistAndroid(), "getCountrySim", "()Ljava/lang/String;");
 	std::string str;
 	convertJStringToString(getJNIEnv(), jstr, str);
 	return str;
@@ -588,8 +595,8 @@ std::string gAndroidUtil::getISO3Language() {
 void gAndroidUtil::updateAssets() {
 	jclass glistandroid = getJavaGlistAndroid();
 
-	jmethodID method = getJNIEnv()->GetStaticMethodID(glistandroid,"updateAssets","()V");
-	getJNIEnv()->CallStaticVoidMethod(glistandroid,method);
+	jmethodID method = getJNIEnv()->GetStaticMethodID(glistandroid, "updateAssets", "()V");
+	getJNIEnv()->CallStaticVoidMethod(glistandroid, method);
 }
 
 std::string gAndroidUtil::getPackageName() {
@@ -610,7 +617,7 @@ int gAndroidUtil::getVersionCode() {
 	jclass glistandroid = getJavaGlistAndroid();
 
 	JNIEnv* env = getJNIEnv();
-	jmethodID method = env->GetStaticMethodID(glistandroid,"getVersionCode","()I");
+	jmethodID method = env->GetStaticMethodID(glistandroid, "getVersionCode", "()I");
 	return env->CallStaticIntMethod(glistandroid, method);
 }
 
@@ -642,7 +649,7 @@ JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onCreate(JNIEnv* e
 	//gLogi("GlistNative") << "onCreate";
 	androidMain();
 #ifdef DEBUG
-	assert(appmanager); // appmanager should not be null after androidMain();
+	assert(appmanager);// appmanager should not be null after androidMain();
 #endif
 }
 
@@ -655,7 +662,7 @@ JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onDestroy(JNIEnv* 
 std::unique_ptr<std::thread> thread;
 JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onStart(JNIEnv* env, jclass clazz, jobject classloader) {
 	gLogi("GlistNative") << "onStart";
-	if(thread) {
+	if (thread) {
 		throw std::runtime_error("cannot call onStart without calling onStop first");
 	}
 
@@ -672,18 +679,18 @@ JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onStart(JNIEnv* en
 
 JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onStop(JNIEnv* env, jclass clazz) {
 	//gLogi("GlistNative") << "onStop";
-	if(appmanager) {
+	if (appmanager) {
 		appmanager->stop();
 	}
-	if(thread) {
-		thread->join(); // wait for shutdown
+	if (thread) {
+		thread->join();// wait for shutdown
 		thread = nullptr;
 	}
 }
 
 JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onPause(JNIEnv* env, jclass clazz) {
 	//gLogi("GlistNative") << "onPause";
-	if(appmanager) {
+	if (appmanager) {
 		gAppPauseEvent event{};
 		appmanager->callEvent(event);
 	}
@@ -691,10 +698,9 @@ JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onPause(JNIEnv* en
 
 JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onResume(JNIEnv* env, jclass clazz) {
 	//gLogi("GlistNative") << "onResume";
-	if(appmanager) {
+	if (appmanager) {
 		gAppResumeEvent event{};
 		appmanager->callEvent(event);
 	}
 }
-
 }
