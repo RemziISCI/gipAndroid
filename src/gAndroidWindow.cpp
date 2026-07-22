@@ -207,7 +207,7 @@ JNIEXPORT jboolean JNICALL Java_dev_glist_android_lib_GlistNative_onTouchEvent(J
 	int* _pointerIds = env->GetIntArrayElements(pointerIds, new jboolean(false));
 	int* _x = env->GetIntArrayElements(x, new jboolean(false));
 	int* _y = env->GetIntArrayElements(y, new jboolean(false));
-	int* _types = env->GetIntArrayElements(y, new jboolean(false));
+	int* _types = env->GetIntArrayElements(types, new jboolean(false));
 	TouchInput inputs[pointerCount];
 	for(int i = 0; i < pointerCount; ++i) {
 		inputs[i] = {(InputType) _types[i], _pointerIds[i], i, _x[i], _y[i]};
