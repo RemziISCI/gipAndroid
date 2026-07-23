@@ -75,7 +75,7 @@ public:
 	void setWindowResizable(bool isResizable) override;
 	void setWindowSizeLimits(int minWidth, int minHeight, int maxWidth, int maxHeight) override;
 
-	void resize();
+	void resize(int surfaceWidth, int surfaceHeight);
 public:
 	static ANativeWindow* nativewindow;
 	bool isclosed;
@@ -85,6 +85,10 @@ private:
 	EGLDisplay display{};
 	EGLSurface surface{};
 	EGLContext context{};
+	EGLConfig config{};
+	ANativeWindow* surfacewindow = nullptr;
+
+	bool recreateSurfaceIfNeeded();
 
 };
 

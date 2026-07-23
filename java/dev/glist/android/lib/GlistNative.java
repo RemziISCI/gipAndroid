@@ -129,7 +129,7 @@ public class GlistNative {
     public static native void onResume();
 
     public static native void setSurface(Surface surface);
-    public static native void onResize();
+    public static native void onResize(int width, int height);
     public static native void setAssetManager(AssetManager assets);
     public static native void setDataDirectory(String path);
     public static native boolean onTouchEvent(int pointerCount, int[] pointerIds, int[] x, int[] y, int[] types, int actionIndex, int actionMasked);
