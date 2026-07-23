@@ -22,7 +22,6 @@ import androidx.annotation.StringRes;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 
-import org.fmod.FMOD;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -48,8 +47,6 @@ public class GlistNative {
 
     @SuppressLint("ApplySharedPref")
     public static SurfaceView init(BaseGlistAppActivity activity, String libraryName) {
-        System.loadLibrary("fmodL");
-        FMOD.init(activity);
         boolean isDebug = ((activity.getBaseContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         // this needs to be changed if project name inside CMakeLists.txt is changed.
         if (isDebug) {
