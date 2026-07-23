@@ -16,7 +16,9 @@
 #ifdef __arm__
 #include <stdint.h>
 extern "C" {
-int32_t __sync_add_and_fetch_4(volatile int32_t* ptr, int32_t val) {
+int32_t my_sync_add_and_fetch_4(volatile int32_t* ptr, int32_t val) __asm__("__sync_add_and_fetch_4");
+
+int32_t my_sync_add_and_fetch_4(volatile int32_t* ptr, int32_t val) {
 	return __atomic_add_fetch(ptr, val, __ATOMIC_SEQ_CST);
 }
 }

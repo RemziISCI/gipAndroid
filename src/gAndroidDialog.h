@@ -10,6 +10,7 @@
 
 #include <string>
 #include <jni.h>
+#include <functional>
 
 enum DialogButton {
 	/** The identifier for the positive button. */

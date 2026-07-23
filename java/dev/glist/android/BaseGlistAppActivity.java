@@ -63,7 +63,6 @@ public abstract class BaseGlistAppActivity extends AppCompatActivity implements 
     protected void onDestroy() {
         super.onDestroy();
         executeQueue.offerLast(GlistNative::onDestroy);
-        org.fmod.FMOD.close();
         shutdownExecutors();
     }
 

@@ -41,14 +41,6 @@ find_library( # Sets the name of the path variable.
 		# you want CMake to locate.
 		log)
 
-add_library(fmod SHARED IMPORTED)
-set_target_properties(fmod PROPERTIES IMPORTED_LOCATION
-		${PLUGIN_DIR}/libs/fmod/${ANDROID_ABI}/libfmod.so)
-
-add_library(fmodL SHARED IMPORTED)
-set_target_properties(fmodL PROPERTIES IMPORTED_LOCATION
-		${PLUGIN_DIR}/libs/fmod/${ANDROID_ABI}/libfmodL.so)
-
 add_library(libpng STATIC IMPORTED)
 set_target_properties(libpng PROPERTIES IMPORTED_LOCATION
 		${PLUGIN_DIR}/libs/libpng/${ANDROID_ABI}/libpng.a)
@@ -76,8 +68,6 @@ set(ANDROID_PLATFORM android-24)
 add_subdirectory(${PLUGIN_DIR}/deps/assimp ${CMAKE_BINARY_DIR}/assimp EXCLUDE_FROM_ALL)
 
 list(APPEND PLUGIN_LINKLIBS
-		fmodL
-		fmod
 		assimp
 		freetype
 		libpng
