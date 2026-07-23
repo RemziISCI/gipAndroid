@@ -103,7 +103,7 @@ public abstract class BaseGlistAppActivity extends AppCompatActivity implements 
     public void surfaceChanged(@NonNull SurfaceHolder holder, int i, int i1, int i2) {
         surfaceSet = true;
         executeQueue.offerFirst(() -> GlistNative.setSurface(holder.getSurface()));
-        executeQueue.offerLast(GlistNative::onResize);
+        executeQueue.offerLast(() -> GlistNative.onResize(i1, i2));
     }
 
     @Override

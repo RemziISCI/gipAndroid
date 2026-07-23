@@ -34,7 +34,6 @@ void gAndroidWindow::initialize(int uwidth, int uheight, int windowMode, bool is
             EGL_DEPTH_SIZE, 16,
             EGL_NONE
 	};
-	EGLConfig config;
 	EGLint numConfigs;
 	EGLint format;
 
@@ -66,6 +65,7 @@ void gAndroidWindow::initialize(int uwidth, int uheight, int windowMode, bool is
 		close();
 		return;
 	}
+	surfacewindow = nativewindow;
     const EGLint attribList[] = {
 			EGL_CONTEXT_CLIENT_VERSION, 3,
 			EGL_NONE
@@ -164,16 +164,37 @@ void gAndroidWindow::setWindowResizable(bool isResizable) {
 void gAndroidWindow::setWindowSizeLimits(int minWidth, int minHeight, int maxWidth, int maxHeight) {
 }
 
-void gAndroidWindow::resize() {
-    update();
-    if(!eglQuerySurface(display, surface, EGL_WIDTH, &width) ||
-        !eglQuerySurface(display, surface, EGL_HEIGHT, &height)) {
-        gLogi("gAndroidWindow") << "eglQuerySurface() returned error " << eglGetError();
-        close();
-        return;
-    }
+void gAndroidWindow::resize(int surfaceWidth, int surfaceHeight) {
+	if(!recreateSurfaceIfNeeded()) {
+		close();
+		return;
+	}
+	// SurfaceHolder supplies the dimensions belonging to this exact callback.
+	// eglQuerySurface can briefly report the previous surface size on rotation.
+	width = surfaceWidth;
+	height = surfaceHeight;
+	if(width <= 0 || height <= 0) return;
     glViewport(0, 0, width, height);
     setSize(width, height);
+}
+
+bool gAndroidWindow::recreateSurfaceIfNeeded() {
+	if(nativewindow == surfacewindow) return true;
+	if(!nativewindow || display == EGL_NO_DISPLAY || context == EGL_NO_CONTEXT) return false;
+
+	// Android can replace SurfaceView's native window during a rotation.  An EGL
+	// surface remains bound to the old window, even though its dimensions may be
+	// reported asynchronously. Recreate it on the engine thread before reading
+	// the new size, rather than drawing one frame into the stale surface.
+	eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	if(surface != EGL_NO_SURFACE) eglDestroySurface(display, surface);
+	surface = eglCreateWindowSurface(display, config, nativewindow, nullptr);
+	if(surface == EGL_NO_SURFACE) return false;
+	if(!eglMakeCurrent(display, surface, surface, context)) return false;
+
+	if(surfacewindow) ANativeWindow_release(surfacewindow);
+	surfacewindow = nativewindow;
+	return true;
 }
 
 extern "C" {
@@ -188,13 +209,13 @@ JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_setSurface(JNIEnv 
 	}
 }
 
-JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onResize(JNIEnv *env, jclass clazz) {
+JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onResize(JNIEnv *env, jclass clazz, jint width, jint height) {
 	if(appmanager) {
-		appmanager->submitToMainThread([]() {
+		appmanager->submitToMainThread([width, height]() {
 			if(!window) {
 				return;
 			}
-			window->resize();
+			window->resize(width, height);
 		});
 	}
 }
