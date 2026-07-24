@@ -7,6 +7,7 @@
 
 #include "gAndroidWindow.h"
 #include "gAppManager.h"
+#include <vector>
 
 #ifdef ANDROID
 
@@ -229,12 +230,21 @@ JNIEXPORT jboolean JNICALL Java_dev_glist_android_lib_GlistNative_onTouchEvent(J
 	int* _x = env->GetIntArrayElements(x, new jboolean(false));
 	int* _y = env->GetIntArrayElements(y, new jboolean(false));
 	int* _types = env->GetIntArrayElements(types, new jboolean(false));
-	TouchInput inputs[pointerCount];
+	std::vector<TouchInput> inputs(pointerCount);
 	for(int i = 0; i < pointerCount; ++i) {
 		inputs[i] = {(InputType) _types[i], _pointerIds[i], i, _x[i], _y[i]};
 	}
-	gTouchEvent event{pointerCount, inputs, actionIndex, (ActionType) actionMasked};
-	window->callEvent(event);
+	env->ReleaseIntArrayElements(pointerIds, _pointerIds, JNI_ABORT);
+	env->ReleaseIntArrayElements(x, _x, JNI_ABORT);
+	env->ReleaseIntArrayElements(y, _y, JNI_ABORT);
+	env->ReleaseIntArrayElements(types, _types, JNI_ABORT);
+
+	if(appmanager) {
+		appmanager->submitToMainThread([inputs, actionIndex, actionMasked]() mutable {
+			gTouchEvent event{(int)inputs.size(), inputs.data(), actionIndex, (ActionType) actionMasked};
+			window->callEvent(event);
+		});
+	}
 	return true;
 }
 
