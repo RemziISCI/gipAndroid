@@ -54,6 +54,12 @@ public:
 
 	static void setDeviceOrientation(DeviceOrientation orientation);
 	static void setFullscreen(bool fullscreen);
+	static bool isFullscreen();
+
+	static void disableActionBar(bool isDisabled);
+	static bool isActionBarDisabled();
+	static void disableScreenLock(bool isDisabled);
+	static bool isScreenLockDisabled();
 
 	static std::string getDeviceName();
 	static int getAndroidApiLevel();

@@ -497,6 +497,26 @@ void gAndroidUtil::setFullscreen(bool fullscreen) {
 	getJNIEnv()->CallStaticVoidMethod(glistandroid, method, fullscreen);
 }
 
+bool gAndroidUtil::isFullscreen() {
+	return callJavaStaticBoolMethod(getJavaGlistAndroid(), "isFullscreen", "()Z");
+}
+
+void gAndroidUtil::disableActionBar(bool isDisabled) {
+	callJavaStaticVoidMethod(getJavaGlistAndroid(), "disableActionBar", "(Z)V", isDisabled);
+}
+
+bool gAndroidUtil::isActionBarDisabled() {
+	return callJavaStaticBoolMethod(getJavaGlistAndroid(), "isActionBarDisabled", "()Z");
+}
+
+void gAndroidUtil::disableScreenLock(bool isDisabled) {
+	callJavaStaticVoidMethod(getJavaGlistAndroid(), "disableScreenLock", "(Z)V", isDisabled);
+}
+
+bool gAndroidUtil::isScreenLockDisabled() {
+	return callJavaStaticBoolMethod(getJavaGlistAndroid(), "isScreenLockDisabled", "()Z");
+}
+
 std::string gAndroidUtil::getDeviceName() {
 	jstring jstr = (jstring) callJavaStaticObjectMethod(getJavaGlistAndroid(), "getDeviceName", "()Ljava/lang/String;");
 	std::string str;

@@ -44,6 +44,9 @@ public class GlistNative {
     private static GlistOrientationListener orientationListener;
     private static String dataDir;
     private static PackageInfo packageInfo;
+    private static boolean fullscreen = false;
+    private static boolean actionBarDisabled = false;
+    private static boolean screenLockDisabled = false;
 
     @SuppressLint("ApplySharedPref")
     public static SurfaceView init(BaseGlistAppActivity activity, String libraryName) {
@@ -59,6 +62,7 @@ public class GlistNative {
         ActionBar actionBar = activity.getSupportActionBar();
         if (actionBar != null) {
             actionBar.hide();
+            actionBarDisabled = true;
         }
         setAssetManager(activity.getAssets());
         dataDir = activity.getDataDir().toString() + "/files";
@@ -190,23 +194,63 @@ public class GlistNative {
     }
 
     public static void setFullscreen(boolean fullscreen) {
-        if (fullscreen) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                activity.getWindow().getInsetsController().hide(WindowInsets.Type.statusBars());
+        GlistNative.fullscreen = fullscreen;
+        activity.runOnUiThread(() -> {
+            if (fullscreen) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    activity.getWindow().getInsetsController().hide(WindowInsets.Type.statusBars());
+                } else {
+                    activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                }
             } else {
-                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    activity.getWindow().getInsetsController().show(WindowInsets.Type.statusBars());
+                } else {
+                    activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                }
             }
-        } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                activity.getWindow().getInsetsController().show(WindowInsets.Type.statusBars());
-            } else {
-                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-            }
-        }
+        });
     }
 
     public static void setDeviceOrientation(int orientation) {
-        activity.setRequestedOrientation(orientation);
+        activity.runOnUiThread(() -> activity.setRequestedOrientation(orientation));
+    }
+
+    public static boolean isFullscreen() {
+        return fullscreen;
+    }
+
+    public static void disableActionBar(boolean isDisabled) {
+        actionBarDisabled = isDisabled;
+        activity.runOnUiThread(() -> {
+            ActionBar actionBar = activity.getSupportActionBar();
+            if (actionBar != null) {
+                if (isDisabled) {
+                    actionBar.hide();
+                } else {
+                    actionBar.show();
+                }
+            }
+        });
+    }
+
+    public static boolean isActionBarDisabled() {
+        return actionBarDisabled;
+    }
+
+    public static void disableScreenLock(boolean isDisabled) {
+        screenLockDisabled = isDisabled;
+        activity.runOnUiThread(() -> {
+            if (isDisabled) {
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            } else {
+                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+        });
+    }
+
+    public static boolean isScreenLockDisabled() {
+        return screenLockDisabled;
     }
 
     public static String getDeviceName() {
