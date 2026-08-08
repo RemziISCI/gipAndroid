@@ -45,26 +45,34 @@ public class GlistSurfaceView extends SurfaceView {
 
             @Override
             public boolean setComposingText(CharSequence text, int newCursorPosition) {
-                for (int i = 0; i < composingText.length(); i++) {
+                int len = composingText.codePointCount(0, composingText.length());
+                for (int i = 0; i < len; i++) {
                     GlistNative.onKeyDown(KeyEvent.KEYCODE_DEL);
                     GlistNative.onKeyUp(KeyEvent.KEYCODE_DEL);
                 }
                 composingText = text.toString();
-                for (int i = 0; i < composingText.length(); i++) {
-                    GlistNative.onCharPressed(composingText.charAt(i));
+                int textLen = composingText.length();
+                for (int i = 0; i < textLen; ) {
+                    int codepoint = Character.codePointAt(composingText, i);
+                    GlistNative.onCharPressed(codepoint);
+                    i += Character.charCount(codepoint);
                 }
                 return true;
             }
 
             @Override
             public boolean commitText(CharSequence text, int newCursorPosition) {
-                for (int i = 0; i < composingText.length(); i++) {
+                int len = composingText.codePointCount(0, composingText.length());
+                for (int i = 0; i < len; i++) {
                     GlistNative.onKeyDown(KeyEvent.KEYCODE_DEL);
                     GlistNative.onKeyUp(KeyEvent.KEYCODE_DEL);
                 }
                 composingText = "";
-                for (int i = 0; i < text.length(); i++) {
-                    GlistNative.onCharPressed(text.charAt(i));
+                int textLen = text.length();
+                for (int i = 0; i < textLen; ) {
+                    int codepoint = Character.codePointAt(text, i);
+                    GlistNative.onCharPressed(codepoint);
+                    i += Character.charCount(codepoint);
                 }
                 return true;
             }
