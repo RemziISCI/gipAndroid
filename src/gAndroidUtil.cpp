@@ -553,6 +553,14 @@ void gAndroidUtil::openEmail(const std::string& mailAddress, const std::string& 
 	getJNIEnv()->CallStaticVoidMethod(glistandroid, method, JavaString(mailAddress).native(), JavaString(subject).native(), JavaString(message).native());
 }
 
+void gAndroidUtil::showKeyboard() {
+	callJavaStaticVoidMethod(getJavaGlistAndroid(), "showKeyboard", "()V");
+}
+
+void gAndroidUtil::hideKeyboard() {
+	callJavaStaticVoidMethod(getJavaGlistAndroid(), "hideKeyboard", "()V");
+}
+
 std::string gAndroidUtil::loadURL(const std::string& url) {
 	jstring jstr = (jstring) callJavaStaticObjectMethod(getJavaGlistAndroid(), "loadURL", "(Ljava/lang/String;)Ljava/lang/String;", JavaString(url).native());
 	std::string str;

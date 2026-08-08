@@ -6,6 +6,8 @@
  */
 
 #include "gAndroidWindow.h"
+#include "gGUITextbox.h"
+#include "gRenderer.h"
 #include "gAppManager.h"
 #include <vector>
 
@@ -248,6 +250,51 @@ JNIEXPORT jboolean JNICALL Java_dev_glist_android_lib_GlistNative_onTouchEvent(J
 	return true;
 }
 
+extern "C" JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onCharPressed(JNIEnv *env, jclass clazz, jint codepoint) {
+	if(appmanager) {
+		appmanager->submitToMainThread([codepoint]() {
+			gCharTypedEvent event{(unsigned int)codepoint};
+			window->callEvent(event);
+		});
+	}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onKeyDown(JNIEnv *env, jclass clazz, jint keycode) {
+	if(appmanager) {
+		appmanager->submitToMainThread([keycode]() {
+			int glistkey = keycode;
+			if (keycode == 67) glistkey = 259; // G_KEY_BACKSPACE
+			else if (keycode == 66) glistkey = 257; // G_KEY_ENTER
+			else if (keycode == 21) glistkey = 263; // G_KEY_LEFT
+			else if (keycode == 22) glistkey = 262; // G_KEY_RIGHT
+			else if (keycode == 19) glistkey = 265; // G_KEY_UP
+			else if (keycode == 20) glistkey = 264; // G_KEY_DOWN
+			else if (keycode == 112) glistkey = 261; // G_KEY_DELETE
+
+			gKeyPressedEvent event{glistkey};
+			window->callEvent(event);
+		});
+	}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onKeyUp(JNIEnv *env, jclass clazz, jint keycode) {
+	if(appmanager) {
+		appmanager->submitToMainThread([keycode]() {
+			int glistkey = keycode;
+			if (keycode == 67) glistkey = 259; // G_KEY_BACKSPACE
+			else if (keycode == 66) glistkey = 257; // G_KEY_ENTER
+			else if (keycode == 21) glistkey = 263; // G_KEY_LEFT
+			else if (keycode == 22) glistkey = 262; // G_KEY_RIGHT
+			else if (keycode == 19) glistkey = 265; // G_KEY_UP
+			else if (keycode == 20) glistkey = 264; // G_KEY_DOWN
+			else if (keycode == 112) glistkey = 261; // G_KEY_DELETE
+
+			gKeyReleasedEvent event{glistkey};
+			window->callEvent(event);
+		});
+	}
+}
+
 JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onOrientationChanged(JNIEnv *env, jclass clazz, jint orientation) {
 	if(!window) {
 		return;
@@ -255,6 +302,52 @@ JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onOrientationChang
 
     gDeviceOrientationChangedEvent event{(DeviceOrientation) orientation};
 	window->callEvent(event);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onCutPressed(JNIEnv *env, jclass clazz) {
+	if(appmanager) {
+		appmanager->submitToMainThread([]() {
+			if (gGUITextbox::focusedtextbox) {
+				gGUITextbox::focusedtextbox->cutText();
+			}
+		});
+	}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onCopyPressed(JNIEnv *env, jclass clazz) {
+	if(appmanager) {
+		appmanager->submitToMainThread([]() {
+			if (gGUITextbox::focusedtextbox) {
+				gGUITextbox::focusedtextbox->copyText();
+			}
+		});
+	}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onPastePressed(JNIEnv *env, jclass clazz) {
+	if(appmanager) {
+		appmanager->submitToMainThread([]() {
+			if (gGUITextbox::focusedtextbox) {
+				gGUITextbox::focusedtextbox->pasteText();
+			}
+		});
+	}
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_onLongPress(JNIEnv *env, jclass clazz, jint x, jint y) {
+	if(appmanager) {
+		appmanager->submitToMainThread([x, y]() {
+			int sx = x;
+			int sy = y;
+			if(gRenderer::getScreenScaling() > G_SCREENSCALING_NONE) {
+				sx = gRenderer::scaleX(x);
+				sy = gRenderer::scaleY(y);
+			}
+			if (gGUITextbox::focusedtextbox) {
+				gGUITextbox::focusedtextbox->longPressed(sx, sy);
+			}
+		});
+	}
 }
 
 }

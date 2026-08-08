@@ -121,8 +121,6 @@ public abstract class BaseGlistAppActivity extends AppCompatActivity implements 
             return true;
         }
 
-        int[] coords = new int[2];
-        view.getLocationInWindow(coords);
         int pointers = event.getPointerCount();
         int[] pointerIds = new int[pointers];
         for (int i = 0; i < pointers; i++) {
@@ -135,8 +133,8 @@ public abstract class BaseGlistAppActivity extends AppCompatActivity implements 
         int actionMasked = event.getActionMasked();
         for (int i = 0; i < pointers; i++) {
             types[i] = event.getToolType(i);
-            x[i] = (int) (event.getAxisValue(MotionEvent.AXIS_X, i) - coords[0]);
-            y[i] = (int) (event.getAxisValue(MotionEvent.AXIS_Y, i) - coords[1]);
+            x[i] = (int) event.getX(i);
+            y[i] = (int) event.getY(i);
         }
         return GlistNative.onTouchEvent(pointers, pointerIds, x, y, types, actionIndex, actionMasked);
     }
