@@ -66,6 +66,8 @@ public:
 	static std::string getInstallerPackage();
 
 	static void openURL(const std::string& url);
+	static void showKeyboard();
+	static void hideKeyboard();
 	static void openEmail(const std::string& mailAddress, const std::string& subject, const std::string& message);
 
 	static std::string loadURL(const std::string& url);

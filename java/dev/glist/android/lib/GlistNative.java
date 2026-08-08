@@ -14,6 +14,8 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceView;
+import android.view.View;
+import android.view.MotionEvent;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.Toast;
@@ -84,6 +86,38 @@ public class GlistNative {
         activity.setContentView(R.layout.main);
         SurfaceView view = activity.findViewById(R.id.surfaceview);
         view.getHolder().addCallback(activity);
+
+        final android.view.GestureDetector gestureDetector = new android.view.GestureDetector(activity, new android.view.GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public void onLongPress(MotionEvent e) {
+                GlistNative.onLongPress((int) e.getX(), (int) e.getY());
+            }
+        });
+
+        view.setOnTouchListener(new View.OnTouchListener() {
+            @SuppressLint("ClickableViewAccessibility")
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                gestureDetector.onTouchEvent(event);
+                int pointers = event.getPointerCount();
+                int[] pointerIds = new int[pointers];
+                for (int i = 0; i < pointers; i++) {
+                    pointerIds[i] = event.getPointerId(i);
+                }
+                int[] x = new int[pointers];
+                int[] y = new int[pointers];
+                int[] types = new int[pointers];
+                int actionIndex = event.getActionIndex();
+                int actionMasked = event.getActionMasked();
+                for (int i = 0; i < pointers; i++) {
+                    types[i] = event.getToolType(i);
+                    x[i] = (int) event.getX(i);
+                    y[i] = (int) event.getY(i);
+                }
+                return GlistNative.onTouchEvent(pointers, pointerIds, x, y, types, actionIndex, actionMasked);
+            }
+        });
+
         return view;
     }
 
@@ -190,6 +224,38 @@ public class GlistNative {
     public static void showToast(String text, int duration) {
         activity.runOnUiThread(() -> {
             Toast.makeText(activity, text, duration).show();
+        });
+    }
+
+    public static void showKeyboard() {
+        activity.runOnUiThread(() -> {
+            View view = activity.findViewById(R.id.surfaceview);
+            if (view == null) {
+                view = activity.getCurrentFocus();
+            }
+            if (view == null) {
+                view = activity.getWindow().getDecorView();
+            }
+            if (view != null) {
+                view.requestFocus();
+                view.requestFocusFromTouch();
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.showSoftInput(view, 0);
+                }
+            }
+        });
+    }
+
+    public static void hideKeyboard() {
+        activity.runOnUiThread(() -> {
+            View view = activity.getWindow().getDecorView();
+            if (view != null) {
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+                }
+            }
         });
     }
 
@@ -404,10 +470,46 @@ public class GlistNative {
         }
     }
 
+    public static native void onCharPressed(int codepoint);
+    public static native void onKeyDown(int keycode);
+    public static native void onKeyUp(int keycode);
     public static native void onOrientationChanged(int orientation);
     public static native void onDialogButtonCallback(int dialogId, int which);
     public static native void onDialogDismissCallback(int dialogId);
     public static native void onDialogClosedCallback(int dialogId);
+
+    public static native void onCutPressed();
+    public static native void onCopyPressed();
+    public static native void onPastePressed();
+    public static native void onLongPress(int x, int y);
+
+    public static void showSelectionMenu(boolean canCut, boolean canCopy, boolean canPaste) {
+        if (activity != null) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    SurfaceView view = activity.findViewById(R.id.surfaceview);
+                    if (view instanceof dev.glist.android.GlistSurfaceView) {
+                        ((dev.glist.android.GlistSurfaceView) view).showSelectionMenu(canCut, canCopy, canPaste);
+                    }
+                }
+            });
+        }
+    }
+
+    public static void hideSelectionMenu() {
+        if (activity != null) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    SurfaceView view = activity.findViewById(R.id.surfaceview);
+                    if (view instanceof dev.glist.android.GlistSurfaceView) {
+                        ((dev.glist.android.GlistSurfaceView) view).hideSelectionMenu();
+                    }
+                }
+            });
+        }
+    }
 
     public static BaseGlistAppActivity getActivity() {
         return activity;
@@ -415,5 +517,19 @@ public class GlistNative {
 
     public static GlistOrientationListener getOrientationListener() {
         return orientationListener;
+    }
+
+    public static boolean hasClipboardText() {
+        if (activity != null) {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard != null && clipboard.hasPrimaryClip()) {
+                android.content.ClipDescription description = clipboard.getPrimaryClipDescription();
+                if (description != null) {
+                    return description.hasMimeType(android.content.ClipDescription.MIMETYPE_TEXT_PLAIN)
+                            || description.hasMimeType(android.content.ClipDescription.MIMETYPE_TEXT_HTML);
+                }
+            }
+        }
+        return false;
     }
 }
