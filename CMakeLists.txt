@@ -4,6 +4,8 @@ cmake_minimum_required (VERSION 3.10.2)
 set(pluginname gipAndroid)
 
 
+if(ANDROID)
+
 ##### PLUGIN PATHS #####
 set(PLUGIN_DIR ${PLUGINS_DIR}/${pluginname})
 set(PLUGIN_LIBS_DIR ${PLUGIN_DIR}/libs)
@@ -87,3 +89,6 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
 	set(SHADERTOHEADER_EXEC_PATH "${PLUGIN_DIR}/tools/GlistShaderToHeader-win-x86_64.exe")
 endif()
+
+endif(ANDROID)
+
