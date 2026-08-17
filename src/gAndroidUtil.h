@@ -70,6 +70,21 @@ public:
 	static void hideKeyboard();
 	static void openEmail(const std::string& mailAddress, const std::string& subject, const std::string& message);
 
+	static void vibrate(long milliseconds);
+	static bool hasVibrator();
+	static bool hasAmplitudeControl();
+	static void setClipboardText(const std::string& text);
+	static std::string getClipboardText();
+	static bool hasClipboardText();
+
+	static int getBatteryLevel();
+	static bool isBatteryCharging();
+
+	static void setBrightness(float brightness);
+	static float getBrightness();
+
+	static bool isDarkMode();
+
 	static std::string loadURL(const std::string& url);
 	static bool saveURLString(const std::string& url, const std::string fileName);
 	static bool saveURLRaw(const std::string url, const std::string fileName);
@@ -128,10 +143,16 @@ public:
 	static float callJavaFloatMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, va_list args);
 	static float callJavaFloatMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, ...);
 	static float callJavaFloatMethod(jobject object, std::string className, std::string methodName, std::string methodSignature, ...);
+	static float callJavaStaticFloatMethod(jclass classID, std::string methodName, std::string methodSignature, va_list args);
+	static float callJavaStaticFloatMethod(jclass classID, std::string methodName, std::string methodSignature, ...);
+	static float callJavaStaticFloatMethod(std::string className, std::string methodName, std::string methodSignature, ...);
 
 	static int callJavaIntMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, va_list args);
 	static int callJavaIntMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, ...);
 	static int callJavaIntMethod(jobject object, std::string className, std::string methodName, std::string methodSignature, ...);
+	static int callJavaStaticIntMethod(jclass classID, std::string methodName, std::string methodSignature, va_list args);
+	static int callJavaStaticIntMethod(jclass classID, std::string methodName, std::string methodSignature, ...);
+	static int callJavaStaticIntMethod(std::string className, std::string methodName, std::string methodSignature, ...);
 
 	static int64_t callJavaLongMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, va_list args);
 	static int64_t callJavaLongMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, ...);

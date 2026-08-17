@@ -2,14 +2,23 @@ package dev.glist.android.lib; // Do not change! GlistEngine links to this packa
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.content.res.Configuration;
+import android.media.AudioAttributes;
 import android.net.Uri;
+import android.os.BatteryManager;
 import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Surface;
@@ -521,7 +530,7 @@ public class GlistNative {
 
     public static boolean hasClipboardText() {
         if (activity != null) {
-            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
             if (clipboard != null && clipboard.hasPrimaryClip()) {
                 android.content.ClipDescription description = clipboard.getPrimaryClipDescription();
                 if (description != null) {
@@ -531,5 +540,107 @@ public class GlistNative {
             }
         }
         return false;
+    }
+
+    private static Vibrator getVibrator() {
+        if (activity == null) return null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            VibratorManager vibratorManager = (VibratorManager) activity.getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+            if (vibratorManager != null) {
+                return vibratorManager.getDefaultVibrator();
+            }
+        }
+        return (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
+    }
+
+    public static boolean hasVibrator() {
+        Vibrator vibrator = getVibrator();
+        return vibrator != null && vibrator.hasVibrator();
+    }
+
+    public static boolean hasAmplitudeControl() {
+        Vibrator vibrator = getVibrator();
+        return vibrator != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vibrator.hasAmplitudeControl();
+    }
+
+    public static void vibrate(long milliseconds) {
+        if (activity == null) return;
+        try {
+            Vibrator vibrator = getVibrator();
+            if (vibrator != null && vibrator.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setUsage(AudioAttributes.USAGE_GAME)
+                            .build();
+                    vibrator.vibrate(VibrationEffect.createOneShot(milliseconds, VibrationEffect.DEFAULT_AMPLITUDE), audioAttributes);
+                } else {
+                    vibrator.vibrate(milliseconds);
+                }
+            }
+        } catch (SecurityException e) {
+            Log.e("GlistNative", "VIBRATE permission is missing in AndroidManifest.xml");
+        } catch (Exception e) {
+            Log.e("GlistNative", "Failed to vibrate: " + e.getMessage());
+        }
+    }
+
+    public static void setClipboardText(String text) {
+        activity.runOnUiThread(() -> {
+            ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("glist_clipboard", text);
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(clip);
+            }
+        });
+    }
+
+    public static String getClipboardText() {
+        ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard != null && clipboard.hasPrimaryClip()) {
+            ClipData clip = clipboard.getPrimaryClip();
+            if (clip != null && clip.getItemCount() > 0) {
+                CharSequence text = clip.getItemAt(0).getText();
+                return text != null ? text.toString() : "";
+            }
+        }
+        return "";
+    }
+
+    public static int getBatteryLevel() {
+        BatteryManager bm = (BatteryManager) activity.getSystemService(Context.BATTERY_SERVICE);
+        if (bm != null) {
+            return bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+        }
+        return -1;
+    }
+
+    public static boolean isBatteryCharging() {
+        IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        Intent batteryStatus = activity.registerReceiver(null, ifilter);
+        if (batteryStatus != null) {
+            int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+            return status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                    status == BatteryManager.BATTERY_STATUS_FULL;
+        }
+        return false;
+    }
+
+    public static void setBrightness(float brightness) {
+        activity.runOnUiThread(() -> {
+            WindowManager.LayoutParams lp = activity.getWindow().getAttributes();
+            lp.screenBrightness = brightness;
+            activity.getWindow().setAttributes(lp);
+        });
+    }
+
+    public static float getBrightness() {
+        WindowManager.LayoutParams lp = activity.getWindow().getAttributes();
+        return lp.screenBrightness;
+    }
+
+    public static boolean isDarkMode() {
+        int nightModeFlags = activity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
     }
 }

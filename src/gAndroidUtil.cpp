@@ -318,6 +318,41 @@ float gAndroidUtil::callJavaFloatMethod(jobject object, std::string className, s
 	return result;
 }
 
+float gAndroidUtil::callJavaStaticFloatMethod(jclass classID, std::string methodName, std::string methodSignature, va_list args) {
+	jmethodID methodid = gAndroidUtil::getJavaStaticMethodID(classID, methodName, methodSignature);
+	if (!methodid) {
+		gLoge("gAndroidUtil") << "Couldn't find static " << methodName << " for float call";
+		return 0;
+	}
+
+	return getJNIEnv()->CallStaticFloatMethodV(classID, methodid, args);
+}
+
+float gAndroidUtil::callJavaStaticFloatMethod(jclass classID, std::string methodName, std::string methodSignature, ...) {
+	va_list args;
+	va_start(args, methodSignature);
+	auto result = gAndroidUtil::callJavaStaticFloatMethod(classID, methodName, methodSignature, args);
+	va_end(args);
+
+	return result;
+}
+
+float gAndroidUtil::callJavaStaticFloatMethod(std::string className, std::string methodName, std::string methodSignature, ...) {
+	jclass classID = gAndroidUtil::getJavaClassID(className);
+	if (!classID) {
+		gLoge() << "Couldn't find static " << className << " for float call";
+		return 0;
+	}
+
+	va_list args;
+	va_start(args, methodSignature);
+	auto result = gAndroidUtil::callJavaStaticFloatMethod(classID, methodName, methodSignature, args);
+	va_end(args);
+	getJNIEnv()->DeleteLocalRef(classID);
+
+	return result;
+}
+
 int gAndroidUtil::callJavaIntMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, va_list args) {
 	jmethodID methodid = gAndroidUtil::getJavaMethodID(classID, methodName, methodSignature);
 
@@ -349,6 +384,41 @@ int gAndroidUtil::callJavaIntMethod(jobject object, std::string className, std::
 	va_list args;
 	va_start(args, methodSignature);
 	auto result = gAndroidUtil::callJavaIntMethod(object, classID, methodName, methodSignature, args);
+	va_end(args);
+	getJNIEnv()->DeleteLocalRef(classID);
+
+	return result;
+}
+
+int gAndroidUtil::callJavaStaticIntMethod(jclass classID, std::string methodName, std::string methodSignature, va_list args) {
+	jmethodID methodid = gAndroidUtil::getJavaStaticMethodID(classID, methodName, methodSignature);
+	if (!methodid) {
+		gLoge("gAndroidUtil") << "Couldn't find static " << methodName << " for int call";
+		return 0;
+	}
+
+	return getJNIEnv()->CallStaticIntMethodV(classID, methodid, args);
+}
+
+int gAndroidUtil::callJavaStaticIntMethod(jclass classID, std::string methodName, std::string methodSignature, ...) {
+	va_list args;
+	va_start(args, methodSignature);
+	auto result = gAndroidUtil::callJavaStaticIntMethod(classID, methodName, methodSignature, args);
+	va_end(args);
+
+	return result;
+}
+
+int gAndroidUtil::callJavaStaticIntMethod(std::string className, std::string methodName, std::string methodSignature, ...) {
+	jclass classID = gAndroidUtil::getJavaClassID(className);
+	if (!classID) {
+		gLoge() << "Couldn't find static " << className << " for int call";
+		return 0;
+	}
+
+	va_list args;
+	va_start(args, methodSignature);
+	auto result = gAndroidUtil::callJavaStaticIntMethod(classID, methodName, methodSignature, args);
 	va_end(args);
 	getJNIEnv()->DeleteLocalRef(classID);
 
@@ -553,12 +623,72 @@ void gAndroidUtil::openEmail(const std::string& mailAddress, const std::string& 
 	getJNIEnv()->CallStaticVoidMethod(glistandroid, method, JavaString(mailAddress).native(), JavaString(subject).native(), JavaString(message).native());
 }
 
+void gAndroidUtil::vibrate(long milliseconds) {
+	jclass glistandroid = getJavaGlistAndroid();
+	callJavaStaticVoidMethod(glistandroid, "vibrate", "(J)V", (jlong) milliseconds);
+}
+
+bool gAndroidUtil::hasVibrator() {
+	jclass glistandroid = getJavaGlistAndroid();
+	return callJavaStaticBoolMethod(glistandroid, "hasVibrator", "()Z");
+}
+
+bool gAndroidUtil::hasAmplitudeControl() {
+	jclass glistandroid = getJavaGlistAndroid();
+	return callJavaStaticBoolMethod(glistandroid, "hasAmplitudeControl", "()Z");
+}
+
+void gAndroidUtil::setClipboardText(const std::string& text) {
+	jclass glistandroid = getJavaGlistAndroid();
+	callJavaStaticVoidMethod(glistandroid, "setClipboardText", "(Ljava/lang/String;)V", (jstring) JavaString(text));
+}
+
+std::string gAndroidUtil::getClipboardText() {
+	jclass glistandroid = getJavaGlistAndroid();
+	jstring jstr = (jstring) callJavaStaticObjectMethod(glistandroid, "getClipboardText", "()Ljava/lang/String;");
+	std::string str;
+	convertJStringToString(getJNIEnv(), jstr, str);
+	return str;
+}
+
+bool gAndroidUtil::hasClipboardText() {
+	jclass glistandroid = getJavaGlistAndroid();
+	return callJavaStaticBoolMethod(glistandroid, "hasClipboardText", "()Z");
+}
+
+int gAndroidUtil::getBatteryLevel() {
+	jclass glistandroid = getJavaGlistAndroid();
+	return callJavaStaticIntMethod(glistandroid, "getBatteryLevel", "()I");
+}
+
+bool gAndroidUtil::isBatteryCharging() {
+	jclass glistandroid = getJavaGlistAndroid();
+	return callJavaStaticBoolMethod(glistandroid, "isBatteryCharging", "()Z");
+}
+
+void gAndroidUtil::setBrightness(float brightness) {
+	jclass glistandroid = getJavaGlistAndroid();
+	callJavaStaticVoidMethod(glistandroid, "setBrightness", "(F)V", brightness);
+}
+
+float gAndroidUtil::getBrightness() {
+	jclass glistandroid = getJavaGlistAndroid();
+	return callJavaStaticFloatMethod(glistandroid, "getBrightness", "()F");
+}
+
+bool gAndroidUtil::isDarkMode() {
+	jclass glistandroid = getJavaGlistAndroid();
+	return callJavaStaticBoolMethod(glistandroid, "isDarkMode", "()Z");
+}
+
 void gAndroidUtil::showKeyboard() {
-	callJavaStaticVoidMethod(getJavaGlistAndroid(), "showKeyboard", "()V");
+	jclass glistandroid = getJavaGlistAndroid();
+	callJavaStaticVoidMethod(glistandroid, "showKeyboard", "()V");
 }
 
 void gAndroidUtil::hideKeyboard() {
-	callJavaStaticVoidMethod(getJavaGlistAndroid(), "hideKeyboard", "()V");
+	jclass glistandroid = getJavaGlistAndroid();
+	callJavaStaticVoidMethod(glistandroid, "hideKeyboard", "()V");
 }
 
 std::string gAndroidUtil::loadURL(const std::string& url) {
