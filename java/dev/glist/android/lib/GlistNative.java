@@ -492,6 +492,8 @@ public class GlistNative {
     public static native void onPastePressed();
     public static native void onLongPress(int x, int y);
 
+    public static native void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults);
+
     public static void showSelectionMenu(boolean canCut, boolean canCopy, boolean canPaste) {
         if (activity != null) {
             activity.runOnUiThread(new Runnable() {
@@ -642,5 +644,22 @@ public class GlistNative {
     public static boolean isDarkMode() {
         int nightModeFlags = activity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    public static boolean checkPermission(String permission) {
+        if (activity == null) return false;
+        return androidx.core.content.ContextCompat.checkSelfPermission(activity, permission) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public static void requestPermissions(String[] permissions, int requestCode) {
+        if (activity == null) return;
+        activity.runOnUiThread(() -> {
+            androidx.core.app.ActivityCompat.requestPermissions(activity, permissions, requestCode);
+        });
+    }
+
+    public static boolean shouldShowRequestPermissionRationale(String permission) {
+        if (activity == null) return false;
+        return androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, permission);
     }
 }
