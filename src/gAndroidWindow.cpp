@@ -11,6 +11,10 @@
 #include "gAppManager.h"
 #include <vector>
 
+#ifdef GLIST_HAS_VULKAN
+#include <vulkan/vulkan.h>
+#endif
+
 #ifdef ANDROID
 
 ANativeWindow* gAndroidWindow::nativewindow = nullptr;
@@ -28,6 +32,29 @@ gAndroidWindow::~gAndroidWindow() {
 
 void gAndroidWindow::initialize(int uwidth, int uheight, int windowMode, bool isResizable) {
     gLogi("gAndroidWindow") << "initialize";
+	usevulkan = appmanager != nullptr && appmanager->getRenderEngine() == G_RENDERER_VK;
+	if(usevulkan) {
+		if(nativewindow == nullptr) {
+			gLoge("gAndroidWindow") << "Cannot initialize Vulkan without an ANativeWindow";
+			return;
+		}
+#ifndef GLIST_HAS_VULKAN
+		gLoge("gAndroidWindow") << "Vulkan was requested but the Android Vulkan loader was not found; falling back to OpenGL ES";
+		usevulkan = false;
+		appmanager->setRenderEngine(G_RENDERER_GL);
+#else
+		width = ANativeWindow_getWidth(nativewindow);
+		height = ANativeWindow_getHeight(nativewindow);
+		if(uwidth == 0) uwidth = width;
+		if(uheight == 0) uheight = height;
+		scalex = static_cast<float>(width) / static_cast<float>(uwidth);
+		scaley = static_cast<float>(height) / static_cast<float>(uheight);
+		isclosed = false;
+		isrendering = true;
+		gBaseWindow::initialize(width, height, windowMode, false);
+		return;
+#endif
+	}
 	const EGLint attribs[] = {
 			EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT, // request OpenGL ES 3.0
             EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -116,6 +143,7 @@ void gAndroidWindow::update() {
     if(!isrendering) {
         return;
     }
+	if(usevulkan) return;
 	if(!eglSwapBuffers(display, surface)) {
         EGLint err = eglGetError();
         if(err == EGL_BAD_SURFACE) {
@@ -128,6 +156,11 @@ void gAndroidWindow::update() {
 }
 
 void gAndroidWindow::close() {
+	if(usevulkan) {
+		isrendering = false;
+		isclosed = true;
+		return;
+	}
     if(!display) {
         return;
     }
@@ -139,6 +172,38 @@ void gAndroidWindow::close() {
 	eglTerminate(display);
 	display = nullptr;
 	isclosed = true;
+}
+
+bool gAndroidWindow::supportsVulkan() const {
+#ifdef GLIST_HAS_VULKAN
+	return usevulkan && nativewindow != nullptr;
+#else
+	return false;
+#endif
+}
+
+void gAndroidWindow::getVulkanInstanceExtensions(std::vector<const char*>& extensions) const {
+#ifdef GLIST_HAS_VULKAN
+	extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+	extensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+#else
+	(void)extensions;
+#endif
+}
+
+bool gAndroidWindow::createVulkanSurface(void* instance, void* surface) {
+#ifdef GLIST_HAS_VULKAN
+	if(nativewindow == nullptr || instance == nullptr || surface == nullptr) return false;
+	VkAndroidSurfaceCreateInfoKHR info{};
+	info.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+	info.window = nativewindow;
+	return vkCreateAndroidSurfaceKHR(*static_cast<VkInstance*>(instance), &info, nullptr,
+			static_cast<VkSurfaceKHR*>(surface)) == VK_SUCCESS;
+#else
+	(void)instance;
+	(void)surface;
+	return false;
+#endif
 }
 
 void gAndroidWindow::setVsync(bool vsync) {
@@ -169,6 +234,12 @@ void gAndroidWindow::setWindowSizeLimits(int minWidth, int minHeight, int maxWid
 }
 
 void gAndroidWindow::resize(int surfaceWidth, int surfaceHeight) {
+	if(usevulkan) {
+		width = surfaceWidth;
+		height = surfaceHeight;
+		if(width > 0 && height > 0) setSize(width, height);
+		return;
+	}
 	if(!recreateSurfaceIfNeeded()) {
 		close();
 		return;

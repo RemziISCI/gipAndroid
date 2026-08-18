@@ -62,6 +62,9 @@ public:
 	 * Destroys all remaining windows and cursors, restores any modified gamma ramps and frees any other allocated resources.
 	 */
 	void close() override;
+	bool supportsVulkan() const override;
+	void getVulkanInstanceExtensions(std::vector<const char*>& extensions) const override;
+	bool createVulkanSurface(void* instance, void* surface) override;
 
 	void setVsync(bool vsync) override;
 
@@ -89,6 +92,7 @@ private:
 	ANativeWindow* surfacewindow = nullptr;
 
 	bool recreateSurfaceIfNeeded();
+	bool usevulkan = false;
 
 };
 
