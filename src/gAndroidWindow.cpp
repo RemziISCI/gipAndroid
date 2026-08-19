@@ -49,6 +49,7 @@ void gAndroidWindow::initialize(int uwidth, int uheight, int windowMode, bool is
 		if(uheight == 0) uheight = height;
 		scalex = static_cast<float>(width) / static_cast<float>(uwidth);
 		scaley = static_cast<float>(height) / static_cast<float>(uheight);
+		adoptNativeWindow();
 		isclosed = false;
 		isrendering = true;
 		gBaseWindow::initialize(width, height, windowMode, false);
@@ -95,7 +96,7 @@ void gAndroidWindow::initialize(int uwidth, int uheight, int windowMode, bool is
 		close();
 		return;
 	}
-	surfacewindow = nativewindow;
+	adoptNativeWindow();
     const EGLint attribList[] = {
 			EGL_CONTEXT_CLIENT_VERSION, 3,
 			EGL_NONE
@@ -159,6 +160,7 @@ void gAndroidWindow::close() {
 	if(usevulkan) {
 		isrendering = false;
 		isclosed = true;
+		releaseSurfaceWindow();
 		return;
 	}
     if(!display) {
@@ -172,6 +174,7 @@ void gAndroidWindow::close() {
 	eglTerminate(display);
 	display = nullptr;
 	isclosed = true;
+	releaseSurfaceWindow();
 }
 
 bool gAndroidWindow::supportsVulkan() const {
@@ -204,6 +207,18 @@ bool gAndroidWindow::createVulkanSurface(void* instance, void* surface) {
 	(void)surface;
 	return false;
 #endif
+}
+
+bool gAndroidWindow::isVulkanSurfaceOutdated() const {
+	// Android hands out a new ANativeWindow when the SurfaceView's surface is
+	// recreated - after a rotation, or after the activity comes back to the
+	// foreground. A VkSurfaceKHR belongs to the window it was created from, so the
+	// renderer has to be told before it presents into a window that is already gone.
+	return usevulkan && nativewindow != surfacewindow;
+}
+
+void gAndroidWindow::vulkanSurfaceRecreated() {
+	adoptNativeWindow();
 }
 
 void gAndroidWindow::setVsync(bool vsync) {
@@ -267,20 +282,49 @@ bool gAndroidWindow::recreateSurfaceIfNeeded() {
 	if(surface == EGL_NO_SURFACE) return false;
 	if(!eglMakeCurrent(display, surface, surface, context)) return false;
 
-	if(surfacewindow) ANativeWindow_release(surfacewindow);
-	surfacewindow = nativewindow;
+	adoptNativeWindow();
 	return true;
+}
+
+// Ownership rule for the two pointers: the JNI setSurface holds exactly one
+// reference on `nativewindow`, and this window holds exactly one on
+// `surfacewindow` for as long as a surface is bound to it. Without the acquire
+// here the same reference would be released twice - once by whoever replaces the
+// native window and once by the code below.
+void gAndroidWindow::adoptNativeWindow() {
+	if(surfacewindow == nativewindow) return;
+	if(nativewindow != nullptr) ANativeWindow_acquire(nativewindow);
+	if(surfacewindow != nullptr) ANativeWindow_release(surfacewindow);
+	surfacewindow = nativewindow;
+}
+
+void gAndroidWindow::releaseSurfaceWindow() {
+	if(surfacewindow == nullptr) return;
+	ANativeWindow_release(surfacewindow);
+	surfacewindow = nullptr;
 }
 
 extern "C" {
 JNIEXPORT void JNICALL Java_dev_glist_android_lib_GlistNative_setSurface(JNIEnv *env, jclass clazz, jobject surface) {
 	if(surface != nullptr) {
-		gAndroidWindow::nativewindow = ANativeWindow_fromSurface(env, surface);
+		// fromSurface takes a reference of its own, so the previous one has to go even
+		// when Android hands back the same window: surfaceChanged arrives on every
+		// rotation and each call would otherwise leak a reference.
+		ANativeWindow* newwindow = ANativeWindow_fromSurface(env, surface);
+		if(gAndroidWindow::nativewindow != nullptr) {
+			ANativeWindow_release(gAndroidWindow::nativewindow);
+		}
+		gAndroidWindow::nativewindow = newwindow;
 	} else {
 		if(window) {
 			window->close();
 		}
-		ANativeWindow_release(gAndroidWindow::nativewindow);
+		if(gAndroidWindow::nativewindow != nullptr) {
+			ANativeWindow_release(gAndroidWindow::nativewindow);
+			// Leaving the pointer behind would make supportsVulkan() and the surface
+			// comparison read a window that is no longer there.
+			gAndroidWindow::nativewindow = nullptr;
+		}
 	}
 }
 

@@ -65,6 +65,8 @@ public:
 	bool supportsVulkan() const override;
 	void getVulkanInstanceExtensions(std::vector<const char*>& extensions) const override;
 	bool createVulkanSurface(void* instance, void* surface) override;
+	bool isVulkanSurfaceOutdated() const override;
+	void vulkanSurfaceRecreated() override;
 
 	void setVsync(bool vsync) override;
 
@@ -92,6 +94,8 @@ private:
 	ANativeWindow* surfacewindow = nullptr;
 
 	bool recreateSurfaceIfNeeded();
+	void adoptNativeWindow();
+	void releaseSurfaceWindow();
 	bool usevulkan = false;
 
 };
