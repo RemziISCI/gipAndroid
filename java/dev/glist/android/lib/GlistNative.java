@@ -544,15 +544,19 @@ public class GlistNative {
         return false;
     }
 
+    private static Vibrator cachedVibrator = null;
     private static Vibrator getVibrator() {
         if (activity == null) return null;
+        if (cachedVibrator != null) return cachedVibrator;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             VibratorManager vibratorManager = (VibratorManager) activity.getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
             if (vibratorManager != null) {
-                return vibratorManager.getDefaultVibrator();
+                cachedVibrator = vibratorManager.getDefaultVibrator();
+                return cachedVibrator;
             }
         }
-        return (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
+        cachedVibrator = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
+        return cachedVibrator;
     }
 
     public static boolean hasVibrator() {
@@ -570,13 +574,11 @@ public class GlistNative {
         try {
             Vibrator vibrator = getVibrator();
             if (vibrator != null && vibrator.hasVibrator()) {
+                // Starting from Android 8.0 (API 26), we use VibrationEffect for better control.
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .setUsage(AudioAttributes.USAGE_GAME)
-                            .build();
-                    vibrator.vibrate(VibrationEffect.createOneShot(milliseconds, VibrationEffect.DEFAULT_AMPLITUDE), audioAttributes);
+                    vibrator.vibrate(VibrationEffect.createOneShot(milliseconds, VibrationEffect.DEFAULT_AMPLITUDE), getAudioAttributes());
                 } else {
+                    // Fallback for older devices.
                     vibrator.vibrate(milliseconds);
                 }
             }
@@ -585,6 +587,155 @@ public class GlistNative {
         } catch (Exception e) {
             Log.e("GlistNative", "Failed to vibrate: " + e.getMessage());
         }
+    }
+
+    public static void vibratePredefined(int effectId) {
+        if (activity == null) return;
+        try {
+            Vibrator vibrator = getVibrator();
+            if (vibrator != null && vibrator.hasVibrator()) {
+                // Predefined effects require Android 10 (API 29).
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vibrator.vibrate(VibrationEffect.createPredefined(effectId), getAudioAttributes());
+                } else {
+                    // Fallback to a simple pulse.
+                    vibrator.vibrate(100);
+                }
+            }
+        } catch (Exception e) {
+            Log.e("GlistNative", "Failed to vibrate predefined: " + e.getMessage());
+        }
+    }
+
+    public static void vibrateWaveform(long[] timings, int repeat) {
+        if (activity == null) return;
+        try {
+            Vibrator vibrator = getVibrator();
+            if (vibrator != null && vibrator.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createWaveform(timings, repeat), getAudioAttributes());
+                } else {
+                    vibrator.vibrate(timings, repeat);
+                }
+            }
+        } catch (Exception e) {
+            Log.e("GlistNative", "Failed to vibrate waveform: " + e.getMessage());
+        }
+    }
+
+    public static void vibrateWaveform(long[] timings, int[] amplitudes, int repeat) {
+        if (activity == null) return;
+        try {
+            Vibrator vibrator = getVibrator();
+            if (vibrator != null && vibrator.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, repeat), getAudioAttributes());
+                } else {
+                    vibrator.vibrate(timings, repeat);
+                }
+            }
+        } catch (Exception e) {
+            Log.e("GlistNative", "Failed to vibrate waveform with amplitudes: " + e.getMessage());
+        }
+    }
+
+    public static void vibrateComposition(int[] primitives, float[] scales, int[] delays) {
+        if (activity == null) return;
+        try {
+            Vibrator vibrator = getVibrator();
+            if (vibrator != null && vibrator.hasVibrator()) {
+                // Composition API requires Android 11 (API 30).
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    VibrationEffect.Composition composition = VibrationEffect.startComposition();
+                    for (int i = 0; i < primitives.length; i++) {
+                        composition.addPrimitive(primitives[i], scales[i], delays[i]);
+                    }
+                    vibrator.vibrate(composition.compose(), getAudioAttributes());
+                } else {
+                    vibrator.vibrate(100);
+                }
+            }
+        } catch (Exception e) {
+            Log.e("GlistNative", "Failed to vibrate composition: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Checks if all requested primitives are supported by the device hardware.
+     */
+    public static boolean arePrimitivesSupported(int[] primitives) {
+        Vibrator vibrator = getVibrator();
+        if (vibrator != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            boolean[] supported = vibrator.arePrimitivesSupported(primitives);
+            for (boolean b : supported) {
+                if (!b) return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Performs a standard UI feedback constant on the activity's root view.
+     * This is the recommended way to handle UI-related haptics.
+     */
+    public static void performHapticFeedback(int feedbackConstant, int flags) {
+        if (activity == null) return;
+        activity.runOnUiThread(() -> {
+            View decorView = activity.getWindow().getDecorView();
+            decorView.performHapticFeedback(feedbackConstant, flags);
+        });
+    }
+
+    /**
+     * Cancels any ongoing vibration.
+     */
+    public static void stopVibration() {
+        Vibrator vibrator = getVibrator();
+        if (vibrator != null) {
+            vibrator.cancel();
+        }
+    }
+
+    // Default usage is GAME, which ensures high-priority tactile feedback.
+    private static int vibrationUsage = AudioAttributes.USAGE_GAME;
+    private static AudioAttributes cachedAudioAttributes = null;
+
+    /**
+     * Categorizes the vibration to ensure it respects system-wide user settings
+     * (e.g. Do Not Disturb, Touch Haptics toggle).
+     */
+    public static void setVibrationUsage(int usage) {
+        if (vibrationUsage != usage) {
+            vibrationUsage = usage;
+            cachedAudioAttributes = null; // Force rebuild
+        }
+    }
+
+    /**
+     * Helper to build AudioAttributes for every vibration call.
+     */
+    private static AudioAttributes getAudioAttributes() {
+        if (cachedAudioAttributes == null) {
+            cachedAudioAttributes = new AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(vibrationUsage)
+                    .build();
+        }
+        return cachedAudioAttributes;
+    }
+
+    /**
+     * Checks if the device has hardware-optimized support for the given effects.
+     * Returns VIBRATION_EFFECT_SUPPORT_YES (1), VIBRATION_EFFECT_SUPPORT_UNKNOWN (0), 
+     * or VIBRATION_EFFECT_SUPPORT_NO (-1).
+     */
+    public static int areEffectsSupported(int[] effectIds) {
+        Vibrator vibrator = getVibrator();
+        if (vibrator != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return vibrator.areAllEffectsSupported(effectIds);
+        }
+        return 0; // VIBRATION_EFFECT_SUPPORT_UNKNOWN
     }
 
     public static void setClipboardText(String text) {

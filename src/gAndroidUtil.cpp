@@ -29,6 +29,32 @@ std::string gAndroidUtil::datadirectory;
 JavaVM* javavm;
 jobject classloader;
 
+jmethodID gAndroidUtil::midVibrate = nullptr;
+jmethodID gAndroidUtil::midVibratePredefined = nullptr;
+jmethodID gAndroidUtil::midVibrateWaveform = nullptr;
+jmethodID gAndroidUtil::midVibrateWaveformAmplitudes = nullptr;
+jmethodID gAndroidUtil::midVibrateComposition = nullptr;
+jmethodID gAndroidUtil::midPerformHapticFeedback = nullptr;
+jmethodID gAndroidUtil::midArePrimitivesSupported = nullptr;
+jmethodID gAndroidUtil::midAreEffectsSupported = nullptr;
+jmethodID gAndroidUtil::midSetVibrationUsage = nullptr;
+jmethodID gAndroidUtil::midStopVibration = nullptr;
+
+void gAndroidUtil::initHapticsCache() {
+	if (midVibrate) return;
+	jclass clazz = getJavaGlistAndroid();
+	midVibrate = getJavaStaticMethodID(clazz, "vibrate", "(J)V");
+	midVibratePredefined = getJavaStaticMethodID(clazz, "vibratePredefined", "(I)V");
+	midVibrateWaveform = getJavaStaticMethodID(clazz, "vibrateWaveform", "([JI)V");
+	midVibrateWaveformAmplitudes = getJavaStaticMethodID(clazz, "vibrateWaveform", "([J[II)V");
+	midVibrateComposition = getJavaStaticMethodID(clazz, "vibrateComposition", "([I[F[I)V");
+	midPerformHapticFeedback = getJavaStaticMethodID(clazz, "performHapticFeedback", "(II)V");
+	midArePrimitivesSupported = getJavaStaticMethodID(clazz, "arePrimitivesSupported", "([I)Z");
+	midAreEffectsSupported = getJavaStaticMethodID(clazz, "areEffectsSupported", "([I)I");
+	midSetVibrationUsage = getJavaStaticMethodID(clazz, "setVibrationUsage", "(I)V");
+	midStopVibration = getJavaStaticMethodID(clazz, "stopVibration", "()V");
+}
+
 JavaString::JavaString(const std::string& string) {
 	env = gAndroidUtil::getJNIEnv();
 	str = (jstring) env->NewGlobalRef(env->NewStringUTF(string.c_str()));
@@ -624,8 +650,138 @@ void gAndroidUtil::openEmail(const std::string& mailAddress, const std::string& 
 }
 
 void gAndroidUtil::vibrate(long milliseconds) {
-	jclass glistandroid = getJavaGlistAndroid();
-	callJavaStaticVoidMethod(glistandroid, "vibrate", "(J)V", (jlong) milliseconds);
+	initHapticsCache();
+	getJNIEnv()->CallStaticVoidMethod(getJavaGlistAndroid(), midVibrate, (jlong) milliseconds);
+}
+
+void gAndroidUtil::vibrate(long milliseconds, float strength) {
+	initHapticsCache();
+	jint amplitude = (jint) (strength * 255.0f);
+	if (amplitude < 0) amplitude = 0;
+	if (amplitude > 255) amplitude = 255;
+
+	JNIEnv* env = getJNIEnv();
+	jlongArray jtimings = env->NewLongArray(1);
+	jlong timing = (jlong) milliseconds;
+	env->SetLongArrayRegion(jtimings, 0, 1, &timing);
+
+	jintArray jamplitudes = env->NewIntArray(1);
+	jint jamp = amplitude;
+	env->SetIntArrayRegion(jamplitudes, 0, 1, &jamp);
+
+	env->CallStaticVoidMethod(getJavaGlistAndroid(), midVibrateWaveformAmplitudes, jtimings, jamplitudes, (jint) -1);
+
+	env->DeleteLocalRef(jtimings);
+	env->DeleteLocalRef(jamplitudes);
+}
+
+void gAndroidUtil::vibrate(gVibrationEffect effect) {
+	initHapticsCache();
+	getJNIEnv()->CallStaticVoidMethod(getJavaGlistAndroid(), midVibratePredefined, (jint) effect);
+}
+
+void gAndroidUtil::vibrate(const std::vector<long>& timings, int repeat) {
+	initHapticsCache();
+	JNIEnv* env = getJNIEnv();
+	jlongArray jtimings = env->NewLongArray(timings.size());
+	std::vector<jlong> jtimings_buf(timings.size());
+	for (size_t i = 0; i < timings.size(); ++i) jtimings_buf[i] = (jlong) timings[i];
+	env->SetLongArrayRegion(jtimings, 0, timings.size(), jtimings_buf.data());
+
+	env->CallStaticVoidMethod(getJavaGlistAndroid(), midVibrateWaveform, jtimings, (jint) repeat);
+
+	env->DeleteLocalRef(jtimings);
+}
+
+void gAndroidUtil::vibrate(const std::vector<long>& timings, const std::vector<int>& amplitudes, int repeat) {
+	initHapticsCache();
+	JNIEnv* env = getJNIEnv();
+	jlongArray jtimings = env->NewLongArray(timings.size());
+	std::vector<jlong> jtimings_buf(timings.size());
+	for (size_t i = 0; i < timings.size(); ++i) jtimings_buf[i] = (jlong) timings[i];
+	env->SetLongArrayRegion(jtimings, 0, timings.size(), jtimings_buf.data());
+
+	jintArray jamplitudes = env->NewIntArray(amplitudes.size());
+	std::vector<jint> jamplitudes_buf(amplitudes.size());
+	for (size_t i = 0; i < amplitudes.size(); ++i) jamplitudes_buf[i] = (jint) amplitudes[i];
+	env->SetIntArrayRegion(jamplitudes, 0, amplitudes.size(), jamplitudes_buf.data());
+
+	env->CallStaticVoidMethod(getJavaGlistAndroid(), midVibrateWaveformAmplitudes, jtimings, jamplitudes, (jint) repeat);
+
+	env->DeleteLocalRef(jtimings);
+	env->DeleteLocalRef(jamplitudes);
+}
+
+void gAndroidUtil::vibrate(const std::vector<gHapticElement>& elements) {
+	initHapticsCache();
+	JNIEnv* env = getJNIEnv();
+	size_t size = elements.size();
+	jintArray jprimitives = env->NewIntArray(size);
+	jfloatArray jscales = env->NewFloatArray(size);
+	jintArray jdelays = env->NewIntArray(size);
+
+	std::vector<jint> primitives(size);
+	std::vector<jfloat> scales(size);
+	std::vector<jint> delays(size);
+
+	for (size_t i = 0; i < size; i++) {
+		primitives[i] = (jint) elements[i].primitive;
+		scales[i] = (jfloat) elements[i].scale;
+		delays[i] = (jint) elements[i].delay;
+	}
+
+	env->SetIntArrayRegion(jprimitives, 0, size, primitives.data());
+	env->SetFloatArrayRegion(jscales, 0, size, scales.data());
+	env->SetIntArrayRegion(jdelays, 0, size, delays.data());
+
+	env->CallStaticVoidMethod(getJavaGlistAndroid(), midVibrateComposition, jprimitives, jscales, jdelays);
+
+	env->DeleteLocalRef(jprimitives);
+	env->DeleteLocalRef(jscales);
+	env->DeleteLocalRef(jdelays);
+}
+
+void gAndroidUtil::performHapticFeedback(gHapticFeedback feedback, gHapticFlag flags) {
+	initHapticsCache();
+	getJNIEnv()->CallStaticVoidMethod(getJavaGlistAndroid(), midPerformHapticFeedback, (jint) feedback, (jint) flags);
+}
+
+bool gAndroidUtil::arePrimitivesSupported(const std::vector<gHapticPrimitive>& primitives) {
+	initHapticsCache();
+	JNIEnv* env = getJNIEnv();
+	jintArray jprimitives = env->NewIntArray(primitives.size());
+	std::vector<jint> primitives_buf(primitives.size());
+	for (size_t i = 0; i < primitives.size(); ++i) primitives_buf[i] = (jint) primitives[i];
+	env->SetIntArrayRegion(jprimitives, 0, primitives.size(), primitives_buf.data());
+
+	bool result = getJNIEnv()->CallStaticBooleanMethod(getJavaGlistAndroid(), midArePrimitivesSupported, jprimitives);
+
+	env->DeleteLocalRef(jprimitives);
+	return result;
+}
+
+int gAndroidUtil::areEffectsSupported(const std::vector<gVibrationEffect>& effects) {
+	initHapticsCache();
+	JNIEnv* env = getJNIEnv();
+	jintArray jeffects = env->NewIntArray(effects.size());
+	std::vector<jint> effects_buf(effects.size());
+	for (size_t i = 0; i < effects.size(); ++i) effects_buf[i] = (jint) effects[i];
+	env->SetIntArrayRegion(jeffects, 0, effects.size(), effects_buf.data());
+
+	int result = getJNIEnv()->CallStaticIntMethod(getJavaGlistAndroid(), midAreEffectsSupported, jeffects);
+
+	env->DeleteLocalRef(jeffects);
+	return result;
+}
+
+void gAndroidUtil::setVibrationUsage(gVibrationUsage usage) {
+	initHapticsCache();
+	getJNIEnv()->CallStaticVoidMethod(getJavaGlistAndroid(), midSetVibrationUsage, (jint) usage);
+}
+
+void gAndroidUtil::stopVibration() {
+	initHapticsCache();
+	getJNIEnv()->CallStaticVoidMethod(getJavaGlistAndroid(), midStopVibration);
 }
 
 bool gAndroidUtil::hasVibrator() {

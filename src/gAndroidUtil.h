@@ -15,6 +15,7 @@
 #include <android/asset_manager_jni.h>
 #include <android/asset_manager.h>
 #include <string>
+#include <vector>
 #include "gWindowEvents.h"
 
 void androidMain();
@@ -34,6 +35,90 @@ public:
 private:
 	JNIEnv* env;
 	jstring str;
+};
+
+/**
+ * @brief Predefined vibration effects introduced in Android 10 (API 29).
+ * These are optimized by the device manufacturer to feel crisp and consistent.
+ */
+enum class gVibrationEffect {
+	CLICK = 0,
+	DOUBLE_CLICK = 1,
+	TICK = 2,
+	THUD = 3,
+	POP = 4,
+	HEAVY_CLICK = 5
+};
+
+/**
+ * @brief Haptic primitives for building complex compositions (API 30+).
+ * These allow for "speaker-like" textures.
+ */
+enum class gHapticPrimitive {
+	CLICK = 1,
+	THUD = 2,
+	SPIN = 3,
+	QUICK_RISE = 4,
+	SLOW_RISE = 5,
+	QUICK_FALL = 6,
+	TICK = 7,
+	LOW_TICK = 8
+};
+
+/**
+ * @brief Standard UI feedback constants from Android HapticFeedbackConstants.
+ * These should be used for UI interactions to ensure consistency with the system.
+ */
+enum class gHapticFeedback {
+	NO_HAPTICS = -1,
+	LONG_PRESS = 0,
+	VIRTUAL_KEY = 1,
+	KEYBOARD_TAP = 3,
+	CLOCK_TICK = 4,
+	CALENDAR_DATE = 5,
+	CONTEXT_CLICK = 6,
+	KEYBOARD_RELEASE = 7,
+	VIRTUAL_KEY_RELEASE = 8,
+	TEXT_HANDLE_MOVE = 9,
+	GESTURE_START = 12,
+	GESTURE_END = 13,
+	CONFIRM = 16,
+	REJECT = 17,
+	TOGGLE_ON = 21,
+	TOGGLE_OFF = 22,
+	GESTURE_THRESHOLD_ACTIVATE = 23,
+	GESTURE_THRESHOLD_DEACTIVATE = 24,
+	DRAG_START = 25,
+	SEGMENT_TICK = 26,
+	SEGMENT_FREQUENT_TICK = 27
+};
+
+enum class gHapticFlag {
+	NONE = 0,
+	IGNORE_VIEW_SETTING = 0x0001,
+	IGNORE_GLOBAL_SETTING = 0x0002
+};
+
+/**
+ * @brief Categorizes vibration purpose to respect system-level user settings.
+ */
+enum class gVibrationUsage {
+	UNKNOWN = 0,
+	TOUCH = 13,
+	GAME = 14,
+	NOTIFICATION = 5,
+	COMMUNICATION_REQUEST = 2,
+	ALARM = 4,
+	RINGTONE = 6
+};
+
+/**
+ * @brief A single element in a haptic composition.
+ */
+struct gHapticElement {
+	gHapticPrimitive primitive;
+	float scale; // Intensity (0.0 to 1.0)
+	int delay;   // Delay in milliseconds after the previous primitive
 };
 
 class gAndroidUtil {
@@ -71,6 +156,50 @@ public:
 	static void openEmail(const std::string& mailAddress, const std::string& subject, const std::string& message);
 
 	static void vibrate(long milliseconds);
+	static void vibrate(long milliseconds, float strength);
+
+	/**
+	 * @brief Trigger a predefined system effect (API 29+).
+	 */
+	static void vibrate(gVibrationEffect effect);
+
+	/**
+	 * @brief Play a waveform pattern of ON/OFF durations.
+	 * @param timings Array of durations (ms). Starts with OFF duration.
+	 * @param repeat Index to start repeating from, or -1 for no repeat.
+	 */
+	static void vibrate(const std::vector<long>& timings, int repeat = -1);
+
+	/**
+	 * @brief Play a waveform with specific amplitudes (API 26+).
+	 * @param amplitudes Array of intensity values (0-255).
+	 */
+	static void vibrate(const std::vector<long>& timings, const std::vector<int>& amplitudes, int repeat = -1);
+
+	/**
+	 * @brief Build and play a rich haptic composition (API 30+).
+	 */
+	static void vibrate(const std::vector<gHapticElement>& elements);
+
+	/**
+	 * @brief Perform standard UI feedback (e.g. Confirm, Reject).
+	 * This is the preferred method for UI interactions.
+	 * @param flags Flags to control feedback behavior (e.g. ignore system settings).
+	 */
+	static void performHapticFeedback(gHapticFeedback feedback, gHapticFlag flags = gHapticFlag::NONE);
+
+	static bool arePrimitivesSupported(const std::vector<gHapticPrimitive>& primitives);
+
+	/**
+	 * @brief Check if the device has hardware-optimized support for predefined effects.
+	 * Returns 1 (Yes), 0 (Unknown), or -1 (No).
+	 */
+	static int areEffectsSupported(const std::vector<gVibrationEffect>& effects);
+
+	static void setVibrationUsage(gVibrationUsage usage);
+
+	static void stopVibration();
+
 	static bool hasVibrator();
 	static bool hasAmplitudeControl();
 	static void setClipboardText(const std::string& text);
@@ -162,6 +291,9 @@ public:
 	static bool callJavaBoolMethod(jobject object, jclass classID, std::string methodName, std::string methodSignature, ...);
 	static bool callJavaBoolMethod(jobject object, std::string className, std::string methodName, std::string methodSignature, ...);
 
+private:
+	static jmethodID midVibrate, midVibratePredefined, midVibrateWaveform, midVibrateWaveformAmplitudes, midVibrateComposition, midPerformHapticFeedback, midArePrimitivesSupported, midAreEffectsSupported, midSetVibrationUsage, midStopVibration;
+	static void initHapticsCache();
 };
 
 
