@@ -146,4 +146,10 @@ public abstract class BaseGlistAppActivity extends AppCompatActivity implements 
             GlistNative.getOrientationListener().checkOrientation();
         }
     }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        GlistNative.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
 }

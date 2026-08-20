@@ -152,10 +152,11 @@ void gAndroidWindow::setCursorMode(gCursorMode cursorMode) {
 }
 
 void gAndroidWindow::setClipboardString(std::string text) {
+	gAndroidUtil::setClipboardText(text);
 }
 
 std::string gAndroidWindow::getClipboardString() {
-	return "todo";
+	return gAndroidUtil::getClipboardText();
 }
 
 void gAndroidWindow::setWindowSize(int width, int height) {

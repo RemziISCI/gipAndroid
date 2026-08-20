@@ -32,6 +32,7 @@ list(APPEND PLUGIN_SRCS
 		${PLUGIN_DIR}/src/gAndroidUtil.cpp
 		${PLUGIN_DIR}/src/gAndroidCanvas.cpp
 		${PLUGIN_DIR}/src/gAndroidApp.cpp
+		${PLUGIN_DIR}/src/gAndroidPermission.cpp
 )
 
 
